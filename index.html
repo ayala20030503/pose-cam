@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<title>POSE CAM｜参考构图相机</title>
+<style>
+:root{color-scheme:dark;--bg:#111318;--panel:#1c2028;--muted:#aab1bf;--line:#343a46;--accent:#f4f5f7}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;background:var(--bg);color:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input{font:inherit}button{border:0;cursor:pointer;touch-action:manipulation}
+.app{width:min(100%,560px);min-height:100dvh;margin:auto;display:flex;flex-direction:column;padding:16px 16px 20px;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{font-weight:800;letter-spacing:.13em;font-size:18px}.sub{font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:3px}
+.pill{border:1px solid var(--line);color:#dfe3ea;background:#20242c;border-radius:99px;padding:8px 11px;font-size:12px}
+.stage{position:relative;width:100%;aspect-ratio:3/4;max-height:64dvh;min-height:280px;background:#242a34;border-radius:20px;overflow:hidden;isolation:isolate}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#20242c}
+#overlay{position:absolute;left:50%;top:50%;width:70%;height:auto;max-height:90%;object-fit:contain;transform:translate(-50%,-50%);opacity:.5;touch-action:none;user-select:none;-webkit-user-drag:none;display:none;filter:none}
+.grid{position:absolute;inset:0;pointer-events:none;opacity:.38;background:linear-gradient(to right,transparent 33.15%,#fff 33.33%,transparent 33.5%,transparent 66.48%,#fff 66.66%,transparent 66.83%),linear-gradient(to bottom,transparent 33.15%,#fff 33.33%,transparent 33.5%,transparent 66.48%,#fff 66.66%,transparent 66.83%);display:none}
+.stage.grid-on .grid{display:block}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#d8dde6;text-align:center;padding:28px}
+.placeholder .camicon{font-size:42px;opacity:.8}.placeholder p{font-size:13px;line-height:1.65;color:#aeb6c4;margin:0;max-width:270px}
+.status{position:absolute;left:12px;top:12px;border-radius:99px;background:#111318b8;padding:7px 10px;font-size:11px;color:#fff;backdrop-filter:blur(8px)}
+.stage-actions{position:absolute;right:12px;top:12px;display:flex;gap:7px}
+.iconbtn{width:38px;height:38px;border:1px solid #ffffff38;background:#111318b8;color:#fff;border-radius:50%;font-size:17px;backdrop-filter:blur(8px)}
+.panel{background:var(--panel);border:1px solid #2b303a;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.label{font-size:13px;color:#e7eaf0}.value{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:#f5f6f8;height:24px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.btn{background:#292e38;color:#f5f6f8;border:1px solid #3b424f;border-radius:12px;padding:12px 10px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px}
+.btn.primary{background:#f5f6f8;color:#15171b;border-color:#f5f6f8;font-weight:700}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.capture-row{display:flex;align-items:center;justify-content:center;gap:22px;padding:2px 0 0}
+.capture{width:66px;height:66px;border-radius:50%;background:#f7f8fa;border:5px solid #777e8a;box-shadow:0 0 0 2px #f7f8fa inset;display:flex;align-items:center;justify-content:center;color:#15171b;font-size:22px}
+.small-round{width:44px;height:44px;border:1px solid #414754;border-radius:50%;background:#292e38;color:#f5f6f8;font-size:18px}
+.note{font-size:11px;line-height:1.55;color:#9ca5b4;margin:0}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#f5f6f8;color:#15171b;border-radius:99px;padding:11px 16px;font-size:13px;max-width:90vw;display:none;z-index:20;box-shadow:0 6px 24px #0006}
+#file{display:none}
+@media(min-width:700px){.app{padding-top:24px}.stage{max-height:60dvh}.panel{gap:12px}}
+</style>
+</head>
+<body>
+<main class="app">
+<header>
+  <div><div class="brand">POSE CAM</div><div class="sub">REFERENCE OVERLAY CAMERA</div></div>
+  <button id="gridBtn" class="pill" aria-pressed="false">▦ 构图网格</button>
+</header>
+
+<section id="stage" class="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <img id="overlay" alt="参考照片模板">
+  <div class="grid"></div>
+  <div id="placeholder" class="placeholder">
+    <div class="camicon">◎</div><strong>让喜欢的照片成为取景模板</strong>
+    <p>启动相机，再导入一张参考照片。拖动模板调整位置，叠在实时画面上对齐构图。</p>
+    <button id="startBtn" class="btn primary">开启相机</button>
+  </div>
+  <div class="status" id="status">相机未启动</div>
+  <div class="stage-actions">
+    <button id="flipBtn" class="iconbtn" title="切换前后摄像头" aria-label="切换前后摄像头">↻</button>
+    <button id="resetBtn" class="iconbtn" title="重置模板位置" aria-label="重置模板位置">⌖</button>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="row"><span class="label">模板透明度</span><span id="opacityVal" class="value">50%</span></div>
+  <input id="opacity" type="range" min="0" max="100" value="50" aria-label="模板透明度">
+  <div class="row"><span class="label">模板大小</span><span id="sizeVal" class="value">70%</span></div>
+  <input id="size" type="range" min="20" max="130" value="70" aria-label="模板大小">
+  <div class="controls">
+    <button id="importBtn" class="btn">＋ 导入参考照片</button>
+    <button id="saveTemplateBtn" class="btn">↓ 保存模板</button>
+  </div>
+  <input id="file" type="file" accept="image/*">
+</section>
+
+<section class="capture-row">
+  <button id="downloadLastBtn" class="small-round" title="下载上一张照片" aria-label="下载上一张照片" disabled>↓</button>
+  <button id="captureBtn" class="capture" aria-label="拍照" disabled>●</button>
+  <button id="toggleOverlayBtn" class="small-round" title="显示或隐藏模板" aria-label="显示或隐藏模板">◉</button>
+</section>
+<p class="note">拍照只保存真实相机画面，不会把参考模板烧录进照片。建议用后置摄像头拍摄；模板只用于取景对齐。</p>
+</main>
+<div id="toast" class="toast" role="status"></div>
+<canvas id="canvas" hidden></canvas>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video=$('video'), overlay=$('overlay'), stage=$('stage'), placeholder=$('placeholder');
+  const startBtn=$('startBtn'), status=$('status'), file=$('file'), canvas=$('canvas');
+  let stream=null, facing='environment', templateUrl=null, overlayVisible=true, lastPhotoUrl=null;
+  let overlayX=50, overlayY=50, pointerStart=null;
+
+  function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.style.display='none',2600)}
+  function setStatus(s){status.textContent=s}
+  async function startCamera(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){toast('当前环境不支持相机，请使用 HTTPS 的手机浏览器打开');return}
+    try{
+      if(stream) stream.getTracks().forEach(t=>t.stop());
+      stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:2560}}});
+      video.srcObject=stream; await video.play();
+      placeholder.style.display='none'; $('captureBtn').disabled=false;
+      setStatus(facing==='environment'?'后置摄像头':'前置摄像头');
+    }catch(e){
+      let msg='无法开启相机，请检查浏览器权限';
+      if(e.name==='NotAllowedError')msg='相机权限被拒绝，请在浏览器设置中允许访问相机';
+      else if(e.name==='NotFoundError')msg='未找到可用摄像头';
+      else if(e.name==='NotReadableError')msg='相机可能正被其他应用占用';
+      toast(msg);setStatus('相机启动失败');
+    }
+  }
+  function applyOverlay(){
+    overlay.style.opacity=Number($('opacity').value)/100;
+    overlay.style.width=$('size').value+'%';
+    overlay.style.left=overlayX+'%';overlay.style.top=overlayY+'%';
+    overlay.style.display=templateUrl&&overlayVisible?'block':'none';
+    $('opacityVal').textContent=$('opacity').value+'%';
+    $('sizeVal').textContent=$('size').value+'%';
+  }
+  function resetOverlay(){overlayX=50;overlayY=50;$('size').value=70;applyOverlay()}
+  $('opacity').addEventListener('input',applyOverlay);
+  $('size').addEventListener('input',applyOverlay);
+  $('gridBtn').addEventListener('click',()=>{const on=stage.classList.toggle('grid-on');$('gridBtn').setAttribute('aria-pressed',on);$('gridBtn').textContent=on?'▦ 关闭网格':'▦ 构图网格'});
+  startBtn.addEventListener('click',startCamera);
+  $('flipBtn').addEventListener('click',async()=>{facing=facing==='environment'?'user':'environment';await startCamera()});
+  $('resetBtn').addEventListener('click',resetOverlay);
+  $('importBtn').addEventListener('click',()=>$('file').click());
+  file.addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0];if(!f)return;
+    if(templateUrl)URL.revokeObjectURL(templateUrl);
+    templateUrl=URL.createObjectURL(f);overlay.src=templateUrl;overlay.onload=()=>{applyOverlay();toast('模板已载入，可直接拖动调整位置')};
+  });
+  $('toggleOverlayBtn').addEventListener('click',()=>{overlayVisible=!overlayVisible;applyOverlay();toast(overlayVisible?'已显示参考模板':'已隐藏参考模板')});
+  $('saveTemplateBtn').addEventListener('click',()=>{
+    if(!templateUrl){toast('请先导入一张参考照片');return}
+    const a=document.createElement('a');a.href=templateUrl;a.download='pose-cam-template';a.click();
+  });
+  overlay.addEventListener('pointerdown',e=>{
+    if(!templateUrl)return; e.preventDefault();overlay.setPointerCapture(e.pointerId);
+    const r=stage.getBoundingClientRect();pointerStart={x:e.clientX,y:e.clientY,left:overlayX,top:overlayY,w:r.width,h:r.height};
+  });
+  overlay.addEventListener('pointermove',e=>{
+    if(!pointerStart)return;const dx=(e.clientX-pointerStart.x)/pointerStart.w*100,dy=(e.clientY-pointerStart.y)/pointerStart.h*100;
+    overlayX=Math.max(0,Math.min(100,pointerStart.left+dx));overlayY=Math.max(0,Math.min(100,pointerStart.top+dy));applyOverlay();
+  });
+  const endDrag=()=>pointerStart=null;
+  overlay.addEventListener('pointerup',endDrag);overlay.addEventListener('pointercancel',endDrag);
+  $('captureBtn').addEventListener('click',()=>{
+    if(!video.videoWidth){toast('请先开启相机');return}
+    const w=video.videoWidth,h=video.videoHeight;canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    // Save the actual camera frame, excluding the UI and template overlay.
+    if(facing==='user'){ctx.translate(w,0);ctx.scale(-1,1)}
+    ctx.drawImage(video,0,0,w,h);
+    canvas.toBlob(blob=>{
+      if(!blob){toast('照片生成失败，请重试');return}
+      if(lastPhotoUrl)URL.revokeObjectURL(lastPhotoUrl);
+      lastPhotoUrl=URL.createObjectURL(blob);
+      $('downloadLastBtn').disabled=false;
+      const a=document.createElement('a');a.href=lastPhotoUrl;a.download='pose-cam-'+new Date().toISOString().replace(/[:.]/g,'-')+'.jpg';a.click();
+      toast('照片已保存（不含模板辅助层）');
+    },'image/jpeg',.94);
+  });
+  $('downloadLastBtn').addEventListener('click',()=>{if(!lastPhotoUrl)return;const a=document.createElement('a');a.href=lastPhotoUrl;a.download='pose-cam-photo.jpg';a.click()});
+  window.addEventListener('pagehide',()=>{if(stream)stream.getTracks().forEach(t=>t.stop())});
+  applyOverlay();
+})();
+</script>
+</body>
+</html>
